@@ -37,6 +37,22 @@ Do not reformat, revert, hide, or include unrelated changes. Check the tree
 and the Gradle files before assuming a task, command, hook, or suite exists;
 the tooling evolves and only the current repository state is authoritative.
 
+## Working with Parallel Agents
+
+- Delegate only bounded tasks that can progress independently, such as a
+  focused review, documentation pass, or isolated implementation. Keep one
+  writer per file; do not assign overlapping edits to parallel agents.
+- Give each agent the goal, relevant specification context, allowed files,
+  constraints, acceptance criteria, and requested checks. Ask it to report
+  changed files, checks run, and unresolved questions.
+- Agents share the working tree. Coordinate edits and avoid concurrent Git
+  operations, staging-server changes, or database changes. Agents do not
+  commit, push, or deploy; the coordinating agent reviews and integrates
+  their work.
+- The coordinating agent owns the final diff review, integration, relevant
+  validation, and any requested commits. Do not treat an agent's completion
+  report as a substitute for checking the resulting tree.
+
 ## Architecture and Responsibilities
 
 | Location | Responsibility |
