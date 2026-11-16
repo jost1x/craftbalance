@@ -1,0 +1,45 @@
+# Perfil rápido para ensayos manuales en un servidor desechable.
+# Copia este archivo como config/craftbalance/config.yml solo en staging.
+# Los tiempos reducidos no sustituyen escenarios con los valores de temporada.
+time:
+  enabled: true
+  daily-minutes: 2
+  max-real-minutes: 60
+  daily-reset:
+    hour: "00:00"
+    timezone: "UTC"
+
+multiplayer:
+  enabled: true
+  consumption:
+    "1": 1.00
+    "2": 0.90
+    "3": 0.85
+    "4": 0.80
+    "5+": 0.75
+
+recovery:
+  enabled: true
+  only-after-normal-exhaustion: true
+  seconds-per-friend-per-minute: 60
+  max-seconds-per-minute: 60
+  initial-wait-minutes: 1
+  max-daily-minutes: 2
+  max-bank-minutes: 2
+  minimum-rejoin-minutes: 1
+  recovered-consumption: 1.00
+
+afk:
+  enabled: true
+  inactivity-minutes: 1
+  counts-as-active-for-others: false
+  consume-own-time-while-afk: true
+
+display:
+  action-bar: true
+  login-summary: true
+  warnings-minutes: [1]
+
+database:
+  type: sqlite
+  file: "craftbalance-staging.db"

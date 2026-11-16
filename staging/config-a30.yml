@@ -1,0 +1,44 @@
+# Perfil aislado para el escenario A30 de agotamiento y salida.
+# Copia como config/craftbalance/config.yml solo en staging.
+time:
+  enabled: true
+  daily-minutes: 1
+  max-real-minutes: 5
+  daily-reset:
+    hour: "00:00"
+    timezone: "UTC"
+
+multiplayer:
+  enabled: true
+  consumption:
+    "1": 1.00
+    "2": 0.90
+    "3": 0.85
+    "4": 0.80
+    "5+": 0.75
+
+recovery:
+  enabled: false
+  only-after-normal-exhaustion: true
+  seconds-per-friend-per-minute: 6
+  max-seconds-per-minute: 30
+  initial-wait-minutes: 10
+  max-daily-minutes: 60
+  max-bank-minutes: 60
+  minimum-rejoin-minutes: 15
+  recovered-consumption: 1.00
+
+afk:
+  enabled: true
+  inactivity-minutes: 1
+  counts-as-active-for-others: false
+  consume-own-time-while-afk: true
+
+display:
+  action-bar: true
+  login-summary: true
+  warnings-minutes: [1]
+
+database:
+  type: sqlite
+  file: "craftbalance-staging.db"

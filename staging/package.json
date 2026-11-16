@@ -1,0 +1,11 @@
+{
+  "name": "craftbalance-staging-client",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "client": "node client.mjs"
+  },
+  "dependencies": {
+    "mineflayer": "4.39.0"
+  }
+}
