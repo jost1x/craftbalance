@@ -1,0 +1,60 @@
+# CraftBalance — base inicial según la especificación.
+# Ajusta timezone a la zona acordada por el grupo.
+time:
+  # false suspende consumo y recuperación; presencia/AFK siguen actualizándose.
+  # El tiempo desactivado no se acredita después; los reinicios diarios siguen aplicándose.
+  enabled: true
+  # Presupuesto de saldo normal que se restaura al cambiar el día.
+  daily-minutes: 240
+  # Límite de conexión real por día; no se multiplica por juego en grupo.
+  max-real-minutes: 360
+  daily-reset:
+    hour: "00:00"
+    timezone: "UTC"
+
+multiplayer:
+  enabled: true
+  # Porcentaje de saldo normal consumido por cada minuto real según jugadores activos,
+  # incluido el propio jugador. Ejemplo: 0.90 consume 54 s de saldo por minuto real.
+  consumption:
+    "1": 1.00
+    "2": 0.90
+    "3": 0.85
+    "4": 0.80
+    "5+": 0.75
+
+recovery:
+  enabled: true
+  # false permite recuperar saldo desconectado aunque aún quede saldo normal.
+  only-after-normal-exhaustion: true
+  # Segundos de saldo recuperado por minuto desconectado elegible y por amigo activo.
+  # Con el valor predeterminado, 1 amigo durante 60 minutos elegibles genera 6 minutos.
+  seconds-per-friend-per-minute: 6
+  # Tope conjunto de segundos recuperados por cada minuto desconectado elegible.
+  max-seconds-per-minute: 30
+  # Espera mínima tras desconectarse antes de empezar a generar recuperación.
+  initial-wait-minutes: 10
+  # Máximo de saldo recuperado generado durante un día local.
+  max-daily-minutes: 60
+  # Máximo de saldo recuperado que se puede guardar al mismo tiempo.
+  max-bank-minutes: 60
+  # Saldo recuperado mínimo para volver si el saldo normal está agotado.
+  minimum-rejoin-minutes: 15
+  # Minutos de saldo recuperado consumidos por minuto real; 1.00 equivale al 100 %.
+  # Este factor es fijo y no recibe bonificaciones por jugadores activos.
+  recovered-consumption: 1.00
+
+afk:
+  enabled: true
+  inactivity-minutes: 5
+  counts-as-active-for-others: false
+  consume-own-time-while-afk: true
+
+display:
+  action-bar: true
+  login-summary: true
+  warnings-minutes: [30, 10, 5]
+
+database:
+  type: sqlite
+  file: "craftbalance.db"

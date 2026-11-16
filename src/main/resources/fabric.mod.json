@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "craftbalance",
+  "version": "${version}",
+  "name": "CraftBalance",
+  "description": "Gestión social del tiempo de juego para servidores Fabric.",
+  "authors": ["CraftBalance"],
+  "environment": "server",
+  "entrypoints": {
+    "main": ["dev.craftbalance.CraftBalanceMod"]
+  },
+  "mixins": ["craftbalance.mixins.json"],
+  "depends": {
+    "fabricloader": ">=0.16.10",
+    "minecraft": "1.21.1",
+    "java": ">=21",
+    "fabric-api": ">=0.115.6"
+  }
+}

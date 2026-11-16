@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "package": "dev.craftbalance.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "refmap": "craftbalance.refmap.json",
+  "mixins": [
+    "ServerPlayNetworkHandlerMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

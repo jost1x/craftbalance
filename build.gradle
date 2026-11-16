@@ -1,0 +1,120 @@
+plugins {
+    id 'fabric-loom' version "${loom_version}"
+    id 'maven-publish'
+}
+
+version = project.mod_version
+group = project.maven_group
+def resolvedModVersion = project.version.toString()
+
+base {
+    archivesName = project.archives_base_name
+}
+
+loom {
+    mixin {
+        defaultRefmapName = "craftbalance.refmap.json"
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
+    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+    annotationProcessor "net.fabricmc:sponge-mixin:0.15.4+mixin.0.8.7"
+
+    implementation 'org.yaml:snakeyaml:2.7'
+    include 'org.yaml:snakeyaml:2.7'
+    implementation 'org.xerial:sqlite-jdbc:3.54.1.0'
+    include 'org.xerial:sqlite-jdbc:3.54.1.0'
+}
+
+processResources {
+    inputs.property 'version', resolvedModVersion
+    filesMatching('fabric.mod.json') {
+        expand 'version': resolvedModVersion
+    }
+}
+
+java {
+    withSourcesJar()
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
+tasks.withType(JavaCompile).configureEach {
+    it.options.release = 21
+}
+
+def serverJarArtifact = tasks.named('remapJar').flatMap { it.archiveFile }
+def serverJarChecksumFile = serverJarArtifact.map { artifact ->
+    new File(artifact.asFile.parentFile, artifact.asFile.name + '.sha256')
+}
+
+tasks.register('serverJarChecksum') {
+    group = 'build'
+    description = 'Writes a SHA-256 sidecar for the remapped server JAR.'
+    dependsOn remapJar
+    inputs.file(serverJarArtifact)
+    outputs.file(serverJarChecksumFile)
+    doLast {
+        def artifact = serverJarArtifact.get().asFile
+        def digest = java.security.MessageDigest.getInstance('SHA-256')
+                .digest(artifact.bytes).encodeHex().toString()
+        serverJarChecksumFile.get().text = "${digest}  ${artifact.name}${System.lineSeparator()}"
+    }
+}
+
+tasks.register('serverBundle', Zip) {
+    group = 'build'
+    description = 'Creates a server installation bundle with the mod and its documentation.'
+    archiveClassifier = 'server-bundle'
+    dependsOn tasks.named('serverJarChecksum')
+
+    from(remapJar.archiveFile) {
+        into 'mods'
+    }
+    from(serverJarChecksumFile) {
+        into 'mods'
+    }
+    from('README.md')
+    from('CHANGELOG.md')
+    from('CRAFTBALANCE_ESPECIFICACION (1).md')
+    from('PRUEBA_ACEPTACION_SERVIDOR.md')
+    from('staging') {
+        into 'staging'
+    }
+    from('src/main/resources/THIRD-PARTY-NOTICES.md') {
+        into 'licenses'
+    }
+    from('src/main/resources/META-INF/licenses') {
+        into 'licenses'
+    }
+}
+
+def serverBundleArtifact = tasks.named('serverBundle', Zip).flatMap { it.archiveFile }
+def serverBundleChecksumFile = serverBundleArtifact.map { artifact ->
+    new File(artifact.asFile.parentFile, artifact.asFile.name + '.sha256')
+}
+
+tasks.register('serverBundleChecksum') {
+    group = 'build'
+    description = 'Writes a SHA-256 sidecar for the server installation bundle.'
+    inputs.file(serverBundleArtifact)
+    outputs.file(serverBundleChecksumFile)
+    doLast {
+        def artifact = serverBundleArtifact.get().asFile
+        def digest = java.security.MessageDigest.getInstance('SHA-256')
+                .digest(artifact.bytes).encodeHex().toString()
+        serverBundleChecksumFile.get().text = "${digest}  ${artifact.name}${System.lineSeparator()}"
+    }
+}
+
+tasks.named('serverBundle').configure {
+    finalizedBy tasks.named('serverBundleChecksum')
+}
