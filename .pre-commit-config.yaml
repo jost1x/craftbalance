@@ -1,0 +1,64 @@
+# pre-commit para CraftBalance — https://pre-commit.com
+#
+# Puesta en marcha (el proyecto aún no es un repositorio git):
+#   git init
+#   pre-commit install          # instala los hooks pre-commit y pre-push
+#   pre-commit run --all-files  # pasada inicial (autocorrige lo que puede)
+#
+# Uso habitual: los hooks corren solos en cada `git commit` / `git push`.
+# Para saltarlos puntualmente: git commit --no-verify
+
+default_install_hook_types: [pre-commit, pre-push]
+
+repos:
+  # ── Higiene general ────────────────────────────────────────────────────────
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: ^src/main/resources/META-INF/licenses/
+      - id: end-of-file-fixer
+        exclude: ^src/main/resources/META-INF/licenses/
+      - id: mixed-line-ending # solo detecta mezclas; gradlew.bat (CRLF) no se toca
+      - id: check-added-large-files # evita commitear JARs, .db o binarios por accidente
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: check-symlinks
+      - id: destroyed-symlinks
+      - id: detect-private-key
+      - id: check-yaml # sintaxis de craftbalance-default.yml y staging/config.yml
+      - id: check-json # fabric.mod.json con "${version}" es JSON válido
+
+  # ── YAML de configuración del mod ──────────────────────────────────────────
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.38.0
+    hooks:
+      - id: yamllint
+        args:
+          - -d
+          - "{extends: default, rules: {document-start: disable, line-length: {max: 140}, comments: {min-spaces-from-content: 1}}}"
+
+  # ── Documentación Markdown (README, CHANGELOG, especificación, pruebas) ────
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.50.0
+    hooks:
+      - id: markdownlint # reglas relajadas en .markdownlint.yaml
+
+  # ── Cliente de staging (Node/mineflayer) ───────────────────────────────────
+  - repo: https://github.com/rbubley/mirrors-prettier
+    rev: v3.10.1
+    hooks:
+      - id: prettier
+        files: ^staging/.*\.(mjs|js|json|ya?ml)$
+
+  # ── Verificación lenta: compilar el mod antes de hacer push ────────────────
+  # Gradle con Loom tarda demasiado para cada commit; se deja en pre-push.
+  - repo: local
+    hooks:
+      - id: gradle-build
+        name: gradlew build (compileJava + remapJar)
+        entry: ./gradlew build --console=plain
+        language: system
+        stages: [pre-push]
+        pass_filenames: false
+        always_run: true

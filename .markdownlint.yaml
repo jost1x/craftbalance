@@ -1,0 +1,7 @@
+# markdownlint — reglas para la documentación de CraftBalance.
+# https://github.com/DavidAnson/markdownlint#rules
+default: true
+
+MD013: false # longitud de línea: prosa en español con líneas largas
+MD033: false # HTML inline permitido (<details>, etc.)
+MD060: false # estilo compacto de pipes en tablas

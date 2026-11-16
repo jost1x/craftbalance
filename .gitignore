@@ -1,0 +1,11 @@
+.gradle/
+build/
+run/
+node_modules/
+staging/data/
+staging/driver/node_modules/
+*.iml
+.idea/
+*.db
+*.db-shm
+*.db-wal
