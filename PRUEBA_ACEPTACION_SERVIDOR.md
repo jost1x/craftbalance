@@ -1,11 +1,11 @@
-# Hoja de aceptación manual — CraftBalance 0.1.53
+# Hoja de aceptación manual — CraftBalance 0.1.54
 
 Esta hoja sirve para registrar la validación en un servidor Fabric de staging con Minecraft 1.21.1. Los escenarios aún no están ejecutados. No uses una base de datos de producción: la prueba de ajustes y de fallos puede desconectar jugadores o cambiar saldos.
 
 ## Preparación
 
 - [ ] Servidor Fabric 1.21.1 con Java 21, Fabric Loader y Fabric API compatibles.
-- [ ] Instalar el JAR 0.1.53 y arrancar una vez para crear `config/craftbalance/config.yml` y SQLite.
+- [ ] Instalar el JAR 0.1.54 y arrancar una vez para crear `config/craftbalance/config.yml` y SQLite.
 - [ ] Definir `time.daily-reset.timezone` según la zona acordada por el grupo; no asumir UTC.
 - [ ] Guardar una copia de la base SQLite y de la configuración antes de probar.
 - [ ] Usar cuentas separadas para jugador, amigo activo y administrador.
@@ -19,7 +19,7 @@ El paquete incluye `staging/config.yml` con un perfil rápido, `staging/config-a
 
 | ID | Escenario y procedimiento | Resultado esperado | Resultado real |
 |---|---|---|---|
-| A1 | Con un jugador activo, anotar el saldo, jugar 10 minutos y consultar `/cb tiempo`. | Aproximadamente 10 minutos menos de saldo normal y 10 minutos reales más. | Pendiente |
+| A1 | Con un jugador activo, anotar el saldo, jugar 10 minutos y consultar `/cb time`. | Aproximadamente 10 minutos menos de saldo normal y 10 minutos reales más. | Pendiente |
 | A2 | Con dos jugadores activos en total, incluido el jugador cuyo saldo se mide, consumir 10 minutos normales sin cambiar el grupo. | Tarda aproximadamente 11 min 7 s reales. | Pendiente |
 | A3 | Con cinco o más jugadores activos en total, incluido el jugador cuyo saldo se mide, consumir los 240 minutos normales sin llegar antes al tope real. | Aproximadamente 5 h 20 min reales. | Pendiente |
 | A4 | Agotar el saldo de un jugador, desconectarlo y dejar cero amigos activos durante la espera. | No genera recuperación. | Pendiente |
@@ -36,12 +36,12 @@ El paquete incluye `staging/config.yml` con un perfil rápido, `staging/config-a
 | A15 | Introducir una clave inválida o duplicada en YAML y ejecutar `/cb reload`; después restaurar el archivo. | El reload informa el error y mantiene activa la última configuración válida. | Pendiente |
 | A16 | Mantener un amigo activo 60 minutos elegibles con un jugador desconectado; usar una tasa de prueba equivalente a 6 s por amigo/min. | Se generan 6 minutos recuperados, también si el cálculo se procesa en intervalos cortos. | Pendiente |
 | A17 | Cambiar la orientación más de 1° entre muestras sin desplazarse; repetir con cambios menores acumulados de posición. | La cámara y el desplazamiento acumulado restablecen actividad según la regla AFK. | Pendiente |
-| A18 | Con `time.enabled: false`, cruzar un reinicio y conectar un UUID nuevo; consultar `/cb tiempo` y `/cb estado`. Mover la cámara y cambiar el inventario después del umbral AFK. | Se aplica el reinicio, existe saldo inicial, movimiento/cámara/inventario actualiza presencia/AFK y no se acredita tiempo pausado. | Pendiente |
+| A18 | Con `time.enabled: false`, cruzar un reinicio y conectar un UUID nuevo; consultar `/cb time` y `/cb status`. Mover la cámara y cambiar el inventario después del umbral AFK. | Se aplica el reinicio, existe saldo inicial, movimiento/cámara/inventario actualiza presencia/AFK y no se acredita tiempo pausado. | Pendiente |
 | A19 | En una copia desechable, impedir que SQLite abra o guarde y observar sesiones actuales y un nuevo ingreso. | El mod falla cerrado: desconecta sesiones y rechaza nuevos ingresos si no puede persistir. | Pendiente |
 | A20 | Instalar solo en el servidor y conectar un cliente sin CraftBalance. | El cliente puede entrar sin instalar este mod. | Pendiente |
 | A21 | Simular un cierre abrupto del proceso con alguien conectado y reiniciar con `recovery.only-after-normal-exhaustion: false`. | No se acredita el tiempo apagado; la espera de recuperación comienza de nuevo al arrancar. | Pendiente |
-| A22 | Con un UUID nunca conectado, ejecutar `/cb set <uuid> normal 120`, luego `/cb info <uuid>` y `/cb auditoria <uuid>`. | Se crea el saldo inicial y el ajuste en una sola transacción; la auditoría muestra antes/después, tipo, minutos y administrador. | Pendiente |
-| A23 | Desconectar un administrador mientras consulta `/cb auditoria` o mientras completa `/cb set`; apagar también con un ajuste pendiente en staging. | La consulta pendiente no muta saldos; el ajuste queda confirmado y auditado o se revierte completo, sin duplicar contabilización al cerrar. | Pendiente |
+| A22 | Con un UUID nunca conectado, ejecutar `/cb set <uuid> normal 120`, luego `/cb info <uuid>` y `/cb audit <uuid>`. | Se crea el saldo inicial y el ajuste en una sola transacción; la auditoría muestra antes/después, tipo, minutos y administrador. | Pendiente |
+| A23 | Desconectar un administrador mientras consulta `/cb audit` o mientras completa `/cb set`; apagar también con un ajuste pendiente en staging. | La consulta pendiente no muta saldos; el ajuste queda confirmado y auditado o se revierte completo, sin duplicar contabilización al cerrar. | Pendiente |
 | A24 | Mantener `afk.enabled: true` y probar `afk.counts-as-active-for-others: true` y `afk.consume-own-time-while-afk: false` en una copia de staging. | El jugador AFK aporta beneficios sociales cuando la primera opción está activa; la segunda pausa su saldo propio, pero el tope de tiempo real diario sigue contando. | Pendiente |
 | A25 | En una zona con horario de verano, configurar el reinicio dentro de la hora local repetida y observar el instante aplicado. | Se usa la primera ocurrencia de esa hora y la fecha diaria no se reinicia dos veces. | Pendiente |
 | A26 | En una zona con horario de verano, configurar el reinicio dentro de una hora local inexistente por el salto primaveral. | El instante se desplaza hacia delante por la duración del salto y el reinicio ocurre una sola vez. | Pendiente |

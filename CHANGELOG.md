@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.54
+
+- Los mensajes del servidor y de comandos se traducen en el servidor según el idioma del cliente, también cuando el cliente no tiene CraftBalance instalado.
+- Los comandos canónicos usan nombres en inglés y mantienen los alias en español por compatibilidad.
+
 ## 0.1.53
 
 - Los mensajes del juego y de comandos están localizados según el idioma del cliente, con traducciones en español e inglés.

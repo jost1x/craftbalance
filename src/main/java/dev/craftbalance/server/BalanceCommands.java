@@ -28,38 +28,54 @@ public final class BalanceCommands {
     private com.mojang.brigadier.builder.LiteralArgumentBuilder<ServerCommandSource> root(String name) {
         return CommandManager.literal(name)
                 .executes(context -> showSelf(context.getSource()))
+                .then(CommandManager.literal("time").executes(context -> showSelf(context.getSource())))
                 .then(CommandManager.literal("tiempo").executes(context -> showSelf(context.getSource())))
+                .then(CommandManager.literal("status").executes(context -> showStatus(context.getSource())))
                 .then(CommandManager.literal("estado").executes(context -> showStatus(context.getSource())))
+                .then(CommandManager.literal("help").executes(context -> help(context.getSource())))
                 .then(CommandManager.literal("ayuda").executes(context -> help(context.getSource())))
                 .then(CommandManager.literal("reload").requires(source -> source.hasPermissionLevel(2))
                         .executes(context -> reload(context.getSource())))
                 .then(CommandManager.literal("info").requires(source -> source.hasPermissionLevel(2))
                         .then(playerArgument()
-                                .executes(context -> info(context.getSource(), StringArgumentType.getString(context, "jugador")))))
+                                .executes(context -> info(context.getSource(), StringArgumentType.getString(context, "player")))))
+                .then(CommandManager.literal("audit").requires(source -> source.hasPermissionLevel(2))
+                        .then(playerArgument()
+                                .executes(context -> audit(context.getSource(),
+                                        StringArgumentType.getString(context, "player"), 5))
+                                .then(CommandManager.argument("count", IntegerArgumentType.integer(1, 20))
+                                        .executes(context -> audit(context.getSource(),
+                                                StringArgumentType.getString(context, "player"),
+                                                IntegerArgumentType.getInteger(context, "count"))))))
                 .then(CommandManager.literal("auditoria").requires(source -> source.hasPermissionLevel(2))
                         .then(playerArgument()
                                 .executes(context -> audit(context.getSource(),
-                                        StringArgumentType.getString(context, "jugador"), 5))
+                                        StringArgumentType.getString(context, "player"), 5))
                                 .then(CommandManager.argument("cantidad", IntegerArgumentType.integer(1, 20))
                                         .executes(context -> audit(context.getSource(),
-                                                StringArgumentType.getString(context, "jugador"),
+                                                StringArgumentType.getString(context, "player"),
                                                 IntegerArgumentType.getInteger(context, "cantidad"))))))
                 .then(CommandManager.literal("set").requires(source -> source.hasPermissionLevel(2))
                         .then(playerArgument()
                                 .then(CommandManager.literal("normal")
-                                        .then(CommandManager.argument("minutos", IntegerArgumentType.integer(0))
+                                        .then(CommandManager.argument("minutes", IntegerArgumentType.integer(0))
                                                 .executes(context -> set(context.getSource(),
-                                                        StringArgumentType.getString(context, "jugador"), "normal",
-                                                        IntegerArgumentType.getInteger(context, "minutos")))))
+                                                        StringArgumentType.getString(context, "player"), "normal",
+                                                        IntegerArgumentType.getInteger(context, "minutes")))))
+                                .then(CommandManager.literal("recovered")
+                                        .then(CommandManager.argument("minutes", IntegerArgumentType.integer(0))
+                                                .executes(context -> set(context.getSource(),
+                                                        StringArgumentType.getString(context, "player"), "recuperado",
+                                                        IntegerArgumentType.getInteger(context, "minutes")))))
                                 .then(CommandManager.literal("recuperado")
                                         .then(CommandManager.argument("minutos", IntegerArgumentType.integer(0))
                                                 .executes(context -> set(context.getSource(),
-                                                        StringArgumentType.getString(context, "jugador"), "recuperado",
+                                                        StringArgumentType.getString(context, "player"), "recuperado",
                                                         IntegerArgumentType.getInteger(context, "minutos")))))));
     }
 
     private RequiredArgumentBuilder<ServerCommandSource, String> playerArgument() {
-        return CommandManager.argument("jugador", StringArgumentType.word())
+        return CommandManager.argument("player", StringArgumentType.word())
                 .suggests((context, builder) -> {
                     ArrayList<String> candidates = new ArrayList<>(runtime.knownPlayerUuids());
                     candidates.addAll(context.getSource().getServer().getPlayerManager().getPlayerList().stream()

@@ -30,7 +30,7 @@ Con `recovery.enabled: false`, el saldo recuperado que ya existe todavía se pue
 
 Con `recovery.only-after-normal-exhaustion: false`, los jugadores desconectados pueden generar recuperación aunque todavía tengan saldo normal; la marca de desconexión se conserva al cambiar de día para mantener esa regla.
 
-Con `time.enabled: false` se suspenden el consumo y la generación de recuperación, pero presencia y AFK siguen actualizándose para `/cb estado`; los reinicios diarios continúan y los nuevos jugadores reciben su saldo inicial. Al reactivarlo, el tiempo desactivado no se cuenta de forma retroactiva.
+Con `time.enabled: false` se suspenden el consumo y la generación de recuperación, pero presencia y AFK siguen actualizándose para `/cb status`; los reinicios diarios continúan y los nuevos jugadores reciben su saldo inicial. Al reactivarlo, el tiempo desactivado no se cuenta de forma retroactiva.
 
 La salida al agotar saldo expulsa al jugador y explica el regreso tras recuperar el mínimo configurado (15 minutos por defecto). La detección AFK considera desplazamiento, cambios de orientación de cámara mayores de 1° entre muestras, cambios del inventario personal/cursor y de la barra rápida, chat, comandos, uso de ítems, interacción con bloques/entidades, intentos de golpear bloques y romperlos. No usa revisiones de contenedores ajenos como señal, porque pueden cambiar automáticamente; otras acciones de modpacks todavía pueden requerir integración adicional.
 
@@ -42,7 +42,7 @@ Con JDK 21:
 ./gradlew remapJar
 ```
 
-El JAR remapeado para instalar en el servidor se genera en `build/libs/`. La versión actual es `craftbalance-0.1.53.jar`, compilada con `./gradlew remapJar`; aún falta validar su comportamiento en un servidor real.
+El JAR remapeado para instalar en el servidor se genera en `build/libs/`. La versión actual es `craftbalance-0.1.54.jar`, compilada con `./gradlew remapJar`; aún falta validar su comportamiento en un servidor real.
 
 Para generar un paquete de instalación con el JAR, las guías de instalación y aceptación, la especificación y los avisos de licencia:
 
@@ -75,12 +75,12 @@ El saldo y el límite diario se reinician en el instante configurado aunque la p
 
 ## Comandos
 
-- `/cb` o `/cb tiempo`: saldos, tiempo real jugado y estimación del tiempo jugable al ritmo actual.
-- `/cb estado`: jugadores considerados activos para otros y factor de consumo propio.
-- `/cb ayuda`: lista breve de comandos.
+- `/cb` o `/cb time`: saldos, tiempo real jugado y estimación del tiempo jugable al ritmo actual. Alias en español: `tiempo`.
+- `/cb status`: jugadores considerados activos para otros y factor de consumo propio. Alias: `estado`.
+- `/cb help`: lista breve de comandos. Alias: `ayuda`.
 - `/cb reload`: recarga YAML validando antes de sustituir la configuración activa.
-- `/cb info <jugador|uuid>`: consulta estado; admite UUID de jugadores desconectados.
-- `/cb auditoria <jugador|uuid> [cantidad]`: muestra los últimos ajustes administrativos registrados (5 por defecto, máximo 20).
-- `/cb set <jugador|uuid> <normal|recuperado> <minutos>`: ajuste administrativo auditado.
+- `/cb info <player|uuid>`: consulta estado; admite UUID de jugadores desconectados.
+- `/cb audit <player|uuid> [count]`: muestra los últimos ajustes administrativos registrados (5 por defecto, máximo 20). Alias en español: `auditoria`.
+- `/cb set <player|uuid> <normal|recovered> <minutes>`: ajuste administrativo auditado. Se acepta `recuperado` como alias de `recovered`.
 
-Los comandos administrativos requieren nivel de permiso 2. Los ajustes hechos desde consola quedan auditados con UUID cero. `/cb set` permite reponer el saldo hasta los topes configurados, confirma el cambio cuando SQLite completa la transacción y restaura el saldo anterior si falla, evitando persistir un ajuste sin auditoría. Si el UUID todavía no existe en SQLite, parte del saldo normal diario configurado y guarda el ajuste y su auditoría en una sola transacción. `/cb auditoria` consulta las entradas más recientes por jugador y muestra `consola` para los ajustes hechos desde la consola. El límite absoluto de tiempo real sigue aplicándose. `/cb reload` mantiene los saldos dentro de topes reducidos y aplica los cambios de reinicio y recuperación desde el momento de la recarga. Cambiar `database.file` requiere reiniciar el servidor. La zona horaria inicial UTC debe cambiarse a la acordada por el grupo. Los valores y objetivos provienen de `CRAFTBALANCE_ESPECIFICACION (1).md`; Cobblemon no es una dependencia y el mod no altera mecánicas de Pokémon.
+Los comandos administrativos requieren nivel de permiso 2. Los ajustes hechos desde consola quedan auditados con UUID cero. `/cb set` permite reponer el saldo hasta los topes configurados, confirma el cambio cuando SQLite completa la transacción y restaura el saldo anterior si falla, evitando persistir un ajuste sin auditoría. Si el UUID todavía no existe en SQLite, parte del saldo normal diario configurado y guarda el ajuste y su auditoría en una sola transacción. `/cb audit` consulta las entradas más recientes por jugador y muestra `consola` para los ajustes hechos desde la consola. El límite absoluto de tiempo real sigue aplicándose. `/cb reload` mantiene los saldos dentro de topes reducidos y aplica los cambios de reinicio y recuperación desde el momento de la recarga. Cambiar `database.file` requiere reiniciar el servidor. La zona horaria inicial UTC debe cambiarse a la acordada por el grupo. Los valores y objetivos provienen de `CRAFTBALANCE_ESPECIFICACION (1).md`; Cobblemon no es una dependencia y el mod no altera mecánicas de Pokémon.
