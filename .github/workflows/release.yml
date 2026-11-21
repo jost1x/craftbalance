@@ -42,8 +42,8 @@ jobs:
             END { if (!found) exit 1 }
           ' CHANGELOG.md > release-notes.md
 
-      - name: Build server bundle
-        run: ./gradlew serverBundle
+      - name: Build mod JAR and checksum
+        run: ./gradlew serverJarChecksum
 
       - name: Create GitHub release
         env:
@@ -55,8 +55,6 @@ jobs:
           files=(
             "build/libs/craftbalance-${version}.jar"
             "build/libs/craftbalance-${version}.jar.sha256"
-            "build/distributions/craftbalance-${version}-server-bundle.zip"
-            "build/distributions/craftbalance-${version}-server-bundle.zip.sha256"
           )
           for file in "${files[@]}"; do
             test -f "$file" || { echo "Missing release asset: $file" >&2; exit 1; }
