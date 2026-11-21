@@ -18,6 +18,8 @@ Al iniciar con una base existente, CraftBalance añade automáticamente las colu
 
 El JAR incluye los avisos y licencias de las bibliotecas empaquetadas en `THIRD-PARTY-NOTICES.md` y `META-INF/licenses/`.
 
+Los mensajes del juego y la salida de comandos usan el idioma del cliente cuando está disponible. Se incluyen traducciones `es_es` y `en_us`; el español es el idioma de referencia.
+
 CraftBalance requiere SQLite en modo WAL y comprueba que quedó activo al abrir la base. Mantén `config/craftbalance/` en un disco local del mismo equipo que ejecuta el servidor; WAL no es compatible con sistemas de archivos de red y el mod no iniciará si SQLite no puede confirmarlo. Para un respaldo sencillo, apaga el servidor de forma ordenada y luego copia `craftbalance.db`. No copies solo el `.db` mientras el servidor está activo: las transacciones confirmadas pueden seguir en `craftbalance.db-wal`; para respaldos en caliente se deben incluir los archivos auxiliares o usar la API de backup de SQLite.
 
 Si SQLite falla al guardar, CraftBalance desconecta las sesiones y bloquea nuevos ingresos hasta reiniciar el servidor, evitando continuar con saldos que no se pueden persistir.

@@ -43,11 +43,11 @@ public final class CraftBalanceMod implements ModInitializer {
     private static void registerEvents() {
         ServerLifecycleEvents.SERVER_STARTED.register(runtime::start);
         ServerLifecycleEvents.SERVER_STOPPED.register(server -> runtime.stop());
-        ServerTickEvents.END_SERVER_TICK.register(server -> runtime.tick(System.currentTimeMillis()));
+        ServerTickEvents.END_SERVER_TICK.register(server -> runtime.tick(runtime.nowMillis()));
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) ->
-                runtime.onJoin(handler.player, System.currentTimeMillis()));
+                runtime.onJoin(handler.player, runtime.nowMillis()));
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) ->
-                runtime.onDisconnect(handler.player, System.currentTimeMillis()));
+                runtime.onDisconnect(handler.player, runtime.nowMillis()));
 
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) ->
                 new BalanceCommands(runtime).register(dispatcher));

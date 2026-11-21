@@ -2,6 +2,10 @@
 
 ## 0.1.53
 
+- Los mensajes del juego y de comandos están localizados según el idioma del cliente, con traducciones en español e inglés.
+- La ayuda y las consultas de estado dividen los datos en líneas más cortas; los avisos de saldo también son más concisos.
+- La contabilidad de intervalos usa tiempo monotónico para no perder ni adelantar saldo si cambia el reloj del sistema durante la ejecución.
+- Si el saldo se agota exactamente al llegar el reinicio diario, se aplica el saldo del nuevo día antes de decidir expulsar al jugador.
 - La salida por saldo agotado o límite diario también se aplica cuando el límite se alcanza durante la liquidación previa de la sesión; ya no se pierde el motivo de detención antes de revisar al jugador.
 - El paquete de servidor incluye un perfil rápido de configuración y una base SQLite independiente para facilitar las pruebas manuales de staging.
 

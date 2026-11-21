@@ -73,24 +73,22 @@ public final class BalanceCommands {
         runtime.markActivity(player);
         var balance = runtime.balance(player.getUuid());
         if (balance == null) {
-            source.sendFeedback(() -> Text.literal("CraftBalance todavía está cargando tus datos o no hay datos disponibles."), false);
+            source.sendFeedback(() -> Text.translatable("craftbalance.command.balance_unavailable"), false);
             return 0;
         }
-        String paused = runtime.config().enabled() ? "" : " | consumo pausado";
-        source.sendFeedback(() -> Text.literal("Saldo normal: " + format(balance.normalBalanceMillis())
-                + " | recuperado: " + format(balance.recoveredBalanceMillis())
-                + " | jugado hoy: " + format(balance.realPlayedTodayMillis())
-                + paused
-                + " / " + runtime.config().maxRealMinutes() + " min"), false);
+        source.sendFeedback(() -> Text.translatable(runtime.config().enabled()
+                        ? "craftbalance.command.balance"
+                        : "craftbalance.command.balance_paused",
+                format(balance.normalBalanceMillis()), format(balance.recoveredBalanceMillis()),
+                format(balance.realPlayedTodayMillis()), runtime.config().maxRealMinutes()), false);
         if (runtime.config().enabled()) {
-            source.sendFeedback(() -> Text.literal("Tiempo jugable estimado al ritmo actual: "
-                    + format(runtime.estimatedPlayableMillis(player.getUuid()))
-                    + " (aprox.; depende del grupo y del límite diario)"), false);
+            source.sendFeedback(() -> Text.translatable("craftbalance.command.playable_estimate",
+                    format(runtime.estimatedPlayableMillis(player.getUuid()))), false);
         }
         if (runtime.config().enabled()
                 && !TimePolicy.canRejoin(balance.normalBalanceMillis(), balance.recoveredBalanceMillis(), runtime.config())) {
-            String reason = runtime.rejoinBlockReason(balance, System.currentTimeMillis());
-            source.sendFeedback(() -> Text.literal(reason), false);
+            Text reason = runtime.rejoinBlockReason(balance, runtime.nowMillis());
+            source.sendFeedback(() -> reason, false);
         }
         return 1;
     }
@@ -98,17 +96,19 @@ public final class BalanceCommands {
     private int showStatus(ServerCommandSource source) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
         ServerPlayerEntity player = source.getPlayer();
         runtime.markActivity(player);
-        String consumption = runtime.config().enabled()
-                ? "tu tasa actual de consumo: " + BalanceFormatting.percent(runtime.consumptionFor(player.getUuid()))
-                : "consumo pausado por configuración";
-        source.sendFeedback(() -> Text.literal("Jugadores considerados activos para otros: " + runtime.activePlayers()
-                + " | " + consumption), false);
+        Text status = runtime.config().enabled()
+                ? Text.translatable("craftbalance.command.status", runtime.activePlayers(),
+                        BalanceFormatting.percent(runtime.consumptionFor(player.getUuid())))
+                : Text.translatable("craftbalance.command.status_paused", runtime.activePlayers());
+        source.sendFeedback(() -> status, false);
         return 1;
     }
 
     private int help(ServerCommandSource source) {
         markInvoker(source);
-        source.sendFeedback(() -> Text.literal("/cb [tiempo|estado|ayuda] · Admin: /cb reload, /cb info <jugador|uuid>, /cb auditoria <jugador|uuid> [cantidad], /cb set <jugador|uuid> <normal|recuperado> <minutos>"), false);
+        source.sendFeedback(() -> Text.translatable("craftbalance.command.help_player"), false);
+        source.sendFeedback(() -> Text.translatable("craftbalance.command.help_admin"), false);
+        source.sendFeedback(() -> Text.translatable("craftbalance.command.help_set"), false);
         return 1;
     }
 
@@ -116,10 +116,10 @@ public final class BalanceCommands {
         markInvoker(source);
         try {
             runtime.reloadConfig();
-            source.sendFeedback(() -> Text.literal("Configuración de CraftBalance recargada y validada."), true);
+            source.sendFeedback(() -> Text.translatable("craftbalance.command.reload_success"), true);
             return 1;
         } catch (Exception exception) {
-            source.sendError(Text.literal("No se aplicó la configuración: " + exception.getMessage()));
+            source.sendError(Text.translatable("craftbalance.command.reload_failure", exception.getMessage()));
             return 0;
         }
     }
@@ -129,49 +129,51 @@ public final class BalanceCommands {
         ServerPlayerEntity target = source.getServer().getPlayerManager().getPlayer(name);
         java.util.UUID targetUuid = target == null ? parseUuid(name) : target.getUuid();
         if (targetUuid == null) {
-            source.sendError(Text.literal("Indica un jugador conectado o su UUID para consultar un jugador desconectado."));
+            source.sendError(Text.translatable("craftbalance.command.player_required_info"));
             return 0;
         }
         var balance = runtime.balance(targetUuid);
-        if (balance == null) { source.sendError(Text.literal("No hay datos cargados para ese jugador.")); return 0; }
+        if (balance == null) { source.sendError(Text.translatable("craftbalance.command.no_player_data")); return 0; }
         String displayName = target == null ? targetUuid.toString() : target.getName().getString();
         var config = runtime.config();
         boolean underRealLimit = balance.realPlayedTodayMillis() < config.maxRealMinutes() * 60_000L;
         boolean canRejoin = !config.enabled() || (underRealLimit
                 && TimePolicy.canRejoin(balance.normalBalanceMillis(), balance.recoveredBalanceMillis(), config));
-        String accessStatus;
+        Text accessStatus;
         if (!config.enabled()) {
-            accessStatus = "puede volver sí (sistema desactivado)";
+            accessStatus = Text.translatable("craftbalance.command.access_disabled");
         } else if (!underRealLimit) {
-            accessStatus = "puede volver no (límite real diario agotado hasta "
-                    + runtime.nextResetLabel(balance, System.currentTimeMillis()) + ")";
+            accessStatus = Text.translatable("craftbalance.command.access_real_limit",
+                    runtime.nextResetLabel(balance, runtime.nowMillis()));
         } else if (!canRejoin && !config.recoveryEnabled()) {
-            accessStatus = "puede volver no (recuperación desactivada; reinicio "
-                    + runtime.nextResetLabel(balance, System.currentTimeMillis()) + ")";
+            accessStatus = Text.translatable("craftbalance.command.access_recovery_disabled",
+                    runtime.nextResetLabel(balance, runtime.nowMillis()));
         } else if (!canRejoin && config.minimumRejoinMinutes() == 0) {
-            accessStatus = "puede volver no (necesita saldo recuperado positivo)";
+            accessStatus = Text.translatable("craftbalance.command.access_need_positive");
         } else if (!canRejoin) {
             long missing = Math.max(0, config.minimumRejoinMinutes() * 60_000L
                     - balance.recoveredBalanceMillis());
-            accessStatus = "puede volver no (faltan " + format(missing) + " recuperados)";
+            accessStatus = Text.translatable("craftbalance.command.access_missing", format(missing));
         } else {
-            accessStatus = "puede volver sí";
+            accessStatus = Text.translatable("craftbalance.command.access_yes");
         }
-        String lastDisconnect = balance.lastDisconnectEpochMillis() <= 0 ? "sin marca"
-                : DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm z").withZone(config.timezone())
-                        .format(Instant.ofEpochMilli(balance.lastDisconnectEpochMillis()));
-        String playableEstimate = config.enabled()
-                ? format(runtime.estimatedPlayableMillis(targetUuid)) + " aprox. al ritmo actual"
-                : "consumo pausado";
-        source.sendFeedback(() -> Text.literal(displayName + " · normal "
-                + format(balance.normalBalanceMillis()) + " · recuperado " + format(balance.recoveredBalanceMillis())
-                + " · generado hoy " + format(balance.recoveryGeneratedTodayMillis())
-                + " · jugado hoy " + format(balance.realPlayedTodayMillis())
-                + " · jugable estimado " + playableEstimate
-                + " · día " + balance.dailyDate()
-                + " · normal agotado " + (balance.normalExhaustedToday() ? "sí" : "no")
-                + " · " + accessStatus
-                + " · última desconexión " + lastDisconnect), false);
+        Text lastDisconnect = balance.lastDisconnectEpochMillis() <= 0
+                ? Text.translatable("craftbalance.command.no_disconnect_mark")
+                : Text.literal(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm z").withZone(config.timezone())
+                        .format(Instant.ofEpochMilli(balance.lastDisconnectEpochMillis())));
+        Text playableEstimate = config.enabled()
+                ? Text.translatable("craftbalance.command.playable_estimate_short",
+                        format(runtime.estimatedPlayableMillis(targetUuid)))
+                : Text.translatable("craftbalance.status.paused");
+        source.sendFeedback(() -> Text.translatable("craftbalance.command.info_balance", displayName,
+                format(balance.normalBalanceMillis()), format(balance.recoveredBalanceMillis())), false);
+        source.sendFeedback(() -> Text.translatable("craftbalance.command.info_today",
+                format(balance.recoveryGeneratedTodayMillis()), format(balance.realPlayedTodayMillis()),
+                playableEstimate, balance.dailyDate().toString()), false);
+        source.sendFeedback(() -> Text.translatable("craftbalance.command.info_access", accessStatus,
+                Text.translatable(balance.normalExhaustedToday()
+                        ? "craftbalance.command.yes" : "craftbalance.command.no")), false);
+        source.sendFeedback(() -> Text.translatable("craftbalance.command.info_disconnect", lastDisconnect), false);
         return 1;
     }
 
@@ -180,7 +182,7 @@ public final class BalanceCommands {
         ServerPlayerEntity target = source.getServer().getPlayerManager().getPlayer(name);
         java.util.UUID targetUuid = target == null ? parseUuid(name) : target.getUuid();
         if (targetUuid == null) {
-            source.sendError(Text.literal("Indica un jugador conectado o su UUID para consultar la auditoría."));
+            source.sendError(Text.translatable("craftbalance.command.player_required_audit"));
             return 0;
         }
         String displayName = target == null ? targetUuid.toString() : target.getName().getString();
@@ -189,28 +191,30 @@ public final class BalanceCommands {
                     if (failure != null) {
                         Throwable cause = failure;
                         while (cause.getCause() != null) cause = cause.getCause();
-                        source.sendError(Text.literal("No se pudo consultar la auditoría: " + cause.getMessage()));
+                        source.sendError(Text.translatable("craftbalance.command.audit_failure", cause.getMessage()));
                         return;
                     }
                     if (adjustments.isEmpty()) {
-                        source.sendFeedback(() -> Text.literal("No hay ajustes auditados para " + displayName + "."), false);
+                        source.sendFeedback(() -> Text.translatable("craftbalance.command.audit_empty", displayName), false);
                         return;
                     }
                     var formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm z")
                             .withZone(runtime.config().timezone());
-                    source.sendFeedback(() -> Text.literal("Últimos " + adjustments.size()
-                            + " ajustes auditados de " + displayName + ":"), false);
+                    source.sendFeedback(() -> Text.translatable("craftbalance.command.audit_header",
+                            adjustments.size(), displayName), false);
                     for (var adjustment : adjustments) {
                         String admin = adjustment.adminUuid().getMostSignificantBits() == 0
                                 && adjustment.adminUuid().getLeastSignificantBits() == 0
-                                ? "consola" : adjustment.adminUuid().toString();
-                        source.sendFeedback(() -> Text.literal(formatter.format(
-                                Instant.ofEpochMilli(adjustment.changedAtEpochMillis())) + " · "
-                                + adjustment.type() + " · admin " + admin
-                                + " · normal " + format(adjustment.normalBeforeMillis()) + " → "
-                                + format(adjustment.normalAfterMillis())
-                                + " · recuperado " + format(adjustment.recoveredBeforeMillis()) + " → "
-                                + format(adjustment.recoveredAfterMillis())), false);
+                                ? "-" : adjustment.adminUuid().toString();
+                        source.sendFeedback(() -> Text.translatable("craftbalance.command.audit_entry",
+                                formatter.format(Instant.ofEpochMilli(adjustment.changedAtEpochMillis())),
+                                Text.translatable(adjustment.type().equals("normal")
+                                        ? "craftbalance.command.type_normal" : "craftbalance.command.type_recovered"),
+                                adjustment.adminUuid().getMostSignificantBits() == 0
+                                        && adjustment.adminUuid().getLeastSignificantBits() == 0
+                                        ? Text.translatable("craftbalance.command.console") : admin,
+                                format(adjustment.normalBeforeMillis()), format(adjustment.normalAfterMillis()),
+                                format(adjustment.recoveredBeforeMillis()), format(adjustment.recoveredAfterMillis())), false);
                     }
                 }));
         return 1;
@@ -221,7 +225,7 @@ public final class BalanceCommands {
         ServerPlayerEntity target = source.getServer().getPlayerManager().getPlayer(name);
         java.util.UUID targetUuid = target == null ? parseUuid(name) : target.getUuid();
         if (targetUuid == null) {
-            source.sendError(Text.literal("Indica un jugador conectado o su UUID para ajustar un jugador desconectado."));
+            source.sendError(Text.translatable("craftbalance.command.player_required_set"));
             return 0;
         }
         try {
@@ -234,18 +238,20 @@ public final class BalanceCommands {
                         if (failure != null) {
                             Throwable cause = failure;
                             while (cause.getCause() != null) cause = cause.getCause();
-                            source.sendError(Text.literal("No se aplicó el ajuste; no se pudo guardar ni auditar: "
-                                    + cause.getMessage()));
+                            source.sendError(Text.translatable("craftbalance.command.set_storage_failure",
+                                    cause.getMessage()));
                             return;
                         }
-                        source.sendFeedback(() -> Text.literal("Saldo " + balanceLabel + " de " + displayName
-                                + " fijado en " + minutes + " min y auditado."), true);
-                        if (target != null) target.sendMessage(Text.literal("Un administrador ajustó tu saldo "
-                                + balanceLabel + " a " + minutes + " min."), false);
+                        Text typeText = Text.translatable(balanceLabel.equals("normal")
+                                ? "craftbalance.command.type_normal" : "craftbalance.command.type_recovered");
+                        source.sendFeedback(() -> Text.translatable("craftbalance.command.set_success",
+                                typeText, displayName, minutes), true);
+                        if (target != null) target.sendMessage(Text.translatable("craftbalance.command.set_notice",
+                                typeText, minutes), false);
                     }));
             return 1;
         } catch (IllegalArgumentException | ArithmeticException exception) {
-            source.sendError(Text.literal("No se aplicó el ajuste: " + exception.getMessage()));
+            source.sendError(Text.translatable("craftbalance.command.set_failure", exception.getMessage()));
             return 0;
         }
     }

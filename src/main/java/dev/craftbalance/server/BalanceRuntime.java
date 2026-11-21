@@ -34,6 +34,7 @@ public final class BalanceRuntime {
     private final Path configFile;
     private final Path configDirectory;
     private final Logger logger;
+    private final MonotonicEpochClock clock = new MonotonicEpochClock();
     private final DailyResetService resetService = new DailyResetService();
     private final Map<UUID, PlayerBalance> balances = new HashMap<>();
     private final Map<UUID, Presence> presence = new HashMap<>();
@@ -75,7 +76,7 @@ public final class BalanceRuntime {
         activePlayers = 0;
         BalanceConfig startupConfig = ConfigManager.current();
         this.persistence = new PlayerPersistence(configDirectory.resolve(startupConfig.databaseFile()));
-        long now = System.currentTimeMillis();
+        long now = nowMillis();
         lastUpdateAt = now;
         lastSaveAt = now;
         persistence.loadAll().whenComplete((loaded, failure) -> {
@@ -94,14 +95,15 @@ public final class BalanceRuntime {
                     return;
                 }
                 BalanceConfig loadedConfig = ConfigManager.current();
-                long loadedAt = System.currentTimeMillis();
+                long loadedAt = nowMillis();
                 for (PlayerBalance balance : loaded) {
                     PlayerBalance current = reconcileBalance(balance, loadedConfig, loadedAt);
                     // A crash can leave a previously connected player without a disconnect mark.
                     // Start a fresh recovery wait now; never credit time spent while the server
                     // was offline. This also supports recovery configurations that do not require
                     // normal balance exhaustion first.
-                    if (current.lastDisconnectEpochMillis() == 0) {
+                    if (current.lastDisconnectEpochMillis() == 0
+                            || current.lastDisconnectEpochMillis() > loadedAt) {
                         current = current.withDisconnect(loadedAt, current.normalExhaustedToday());
                     }
                     balances.put(current.uuid(), current);
@@ -120,16 +122,16 @@ public final class BalanceRuntime {
 
     public void onJoin(ServerPlayerEntity player, long now) {
         if (persistenceFailed) {
-            player.networkHandler.disconnect(Text.literal("CraftBalance no puede guardar los saldos en SQLite. Contacta al administrador del servidor."));
+            player.networkHandler.disconnect(Text.translatable("craftbalance.message.persistence_unavailable"));
             return;
         }
         if (!ready) {
-            player.networkHandler.disconnect(Text.literal("CraftBalance está cargando los datos del servidor. Vuelve a intentarlo en unos segundos."));
+            player.networkHandler.disconnect(Text.translatable("craftbalance.message.loading"));
             return;
         }
         UUID uuid = player.getUuid();
         if (pendingAdjustmentAudits.containsKey(uuid)) {
-            player.networkHandler.disconnect(Text.literal("Tu saldo se está actualizando. Vuelve a conectarte en unos segundos."));
+            player.networkHandler.disconnect(Text.translatable("craftbalance.message.balance_updating"));
             return;
         }
         BalanceConfig config = ConfigManager.current();
@@ -143,10 +145,9 @@ public final class BalanceRuntime {
             presence.put(uuid, newPresence(now, player));
             refreshActivePlayers(now, config);
             if (config.loginSummaryEnabled()) {
-                player.sendMessage(Text.literal("CraftBalance · normal " + format(balance.normalBalanceMillis())
-                        + " · recuperado " + format(balance.recoveredBalanceMillis())
-                        + " · consumo pausado"), false);
-                player.sendMessage(Text.literal("Tiempo jugable estimado: no disponible mientras el consumo está pausado."), false);
+                player.sendMessage(Text.translatable("craftbalance.message.login_paused",
+                        format(balance.normalBalanceMillis()), format(balance.recoveredBalanceMillis())), false);
+                player.sendMessage(Text.translatable("craftbalance.message.estimate_paused"), false);
             }
             return;
         }
@@ -166,15 +167,15 @@ public final class BalanceRuntime {
             persistSoon();
             rejectedJoins.add(uuid);
             refreshActivePlayers(now, config, uuid);
-            player.networkHandler.disconnect(Text.literal("Alcanzaste el límite diario de CraftBalance. Se restablece el "
-                    + resetService.nextResetLabel(config, now, balance.dailyDate()) + " (" + config.timezone() + ")."));
+            player.networkHandler.disconnect(Text.translatable("craftbalance.message.daily_limit",
+                    resetService.nextResetLabel(config, now, balance.dailyDate()), config.timezone().getId()));
             return;
         }
         if (!TimePolicy.canRejoin(balance.normalBalanceMillis(), balance.recoveredBalanceMillis(), ConfigManager.current())) {
             persistSoon();
             rejectedJoins.add(uuid);
             refreshActivePlayers(now, config, uuid);
-            player.networkHandler.disconnect(Text.literal(rejoinBlockReason(balance, now)));
+            player.networkHandler.disconnect(rejoinBlockReason(balance, now));
             return;
         }
         balance = new PlayerBalance(balance.uuid(), balance.dailyDate(), balance.normalBalanceMillis(),
@@ -186,12 +187,11 @@ public final class BalanceRuntime {
         advanceRecoveryCursor(uuid, now);
         refreshActivePlayers(now, config);
         if (ConfigManager.current().loginSummaryEnabled()) {
-            player.sendMessage(Text.literal("CraftBalance · normal " + format(balance.normalBalanceMillis())
-                    + " · recuperado " + format(balance.recoveredBalanceMillis())
-                    + " · límite diario " + format(Math.max(0, ConfigManager.current().maxRealMinutes() * 60_000L - balance.realPlayedTodayMillis()))), false);
-            player.sendMessage(Text.literal("Tiempo jugable estimado al ritmo actual: "
-                    + format(estimatedPlayableMillis(uuid))
-                    + " (aprox.; depende del grupo y del límite diario)"), false);
+            player.sendMessage(Text.translatable("craftbalance.message.login_summary",
+                    format(balance.normalBalanceMillis()), format(balance.recoveredBalanceMillis()),
+                    format(Math.max(0, ConfigManager.current().maxRealMinutes() * 60_000L - balance.realPlayedTodayMillis()))), false);
+            player.sendMessage(Text.translatable("craftbalance.message.playable_estimate",
+                    format(estimatedPlayableMillis(uuid))), false);
         }
         persistSoon();
     }
@@ -246,7 +246,7 @@ public final class BalanceRuntime {
     public void markActivity(ServerPlayerEntity player) {
         Presence current = presence.get(player.getUuid());
         if (current == null) return;
-        long now = System.currentTimeMillis();
+        long now = nowMillis();
         BalanceConfig config = ConfigManager.current();
         boolean wasAfk = config.afkEnabled()
                 && now - current.lastActivityAt >= config.inactivityMinutes() * 60_000L;
@@ -291,6 +291,10 @@ public final class BalanceRuntime {
 
     public void tick(long now) {
         tick(now, false);
+    }
+
+    public long nowMillis() {
+        return clock.millis();
     }
 
     private void tick(long now, boolean forceAccounting) {
@@ -398,12 +402,12 @@ public final class BalanceRuntime {
             }
             double displayedRate = !consumeBalance ? 0.0 : after.normalBalanceMillis() > 0
                     ? config.consumptionFor(factorPlayers) : config.recoveredConsumption();
-            if (config.actionBarEnabled()) player.sendMessage(Text.literal("CraftBalance · normal "
-                    + format(after.normalBalanceMillis()) + " · recuperado " + format(after.recoveredBalanceMillis())
-                    + " · consumo " + BalanceFormatting.percent(displayedRate)), true);
+            if (config.actionBarEnabled()) player.sendMessage(Text.translatable("craftbalance.message.action_bar",
+                    format(after.normalBalanceMillis()), format(after.recoveredBalanceMillis()),
+                    BalanceFormatting.percent(displayedRate)), true);
             if (stopReason == BalanceEngine.StopReason.DAILY_REAL_LIMIT) {
-                player.networkHandler.disconnect(Text.literal("Alcanzaste el límite diario de CraftBalance. Se restablece el "
-                        + resetService.nextResetLabel(config, now, after.dailyDate()) + " (" + config.timezone() + ")."));
+                player.networkHandler.disconnect(Text.translatable("craftbalance.message.daily_limit",
+                        resetService.nextResetLabel(config, now, after.dailyDate()), config.timezone().getId()));
                 onDisconnect(player, now);
             } else if (stopReason == BalanceEngine.StopReason.BALANCE_EMPTY) {
                 player.networkHandler.disconnect(balanceExhaustedMessage(config, after, now));
@@ -547,7 +551,7 @@ public final class BalanceRuntime {
         for (int minutes : config.warningMinutes()) {
             long threshold = minutes * 60_000L;
             if (before > threshold && after <= threshold && sent.add(minutes))
-                player.sendMessage(Text.literal("CraftBalance: quedan aproximadamente " + minutes + " min de saldo efectivo."), false);
+                player.sendMessage(Text.translatable("craftbalance.message.warning", minutes), false);
         }
     }
 
@@ -656,24 +660,22 @@ public final class BalanceRuntime {
     public String nextResetLabel(PlayerBalance balance, long epochMillis) {
         return resetService.nextResetLabel(ConfigManager.current(), epochMillis, balance.dailyDate());
     }
-    public String rejoinBlockReason(PlayerBalance balance, long epochMillis) {
+    public Text rejoinBlockReason(PlayerBalance balance, long epochMillis) {
         BalanceConfig config = ConfigManager.current();
         if (!config.recoveryEnabled())
-            return "La recuperación está desactivada. Podrás volver tras el reinicio diario "
-                    + resetService.nextResetLabel(config, epochMillis, balance.dailyDate())
-                    + " (" + config.timezone() + ").";
+            return Text.translatable("craftbalance.message.rejoin_recovery_disabled",
+                    resetService.nextResetLabel(config, epochMillis, balance.dailyDate()), config.timezone().getId());
         int minimumMinutes = config.minimumRejoinMinutes();
         if (minimumMinutes == 0)
-            return "No tienes saldo recuperado disponible para volver. La recuperación solo avanza mientras haya otros jugadores activos.";
-        return "Aún no tienes los " + minimumMinutes + " minutos recuperados necesarios para volver. Te faltan "
-                + format(Math.max(0, (long) minimumMinutes * 60_000L - balance.recoveredBalanceMillis()))
-                + ". La recuperación solo avanza mientras haya otros jugadores activos.";
+            return Text.translatable("craftbalance.message.rejoin_need_positive");
+        return Text.translatable("craftbalance.message.rejoin_need_minimum", minimumMinutes,
+                format(Math.max(0, (long) minimumMinutes * 60_000L - balance.recoveredBalanceMillis())));
     }
     public double consumptionFor(UUID player) {
         Presence current = presence.get(player);
         BalanceConfig config = ConfigManager.current();
         boolean afk = config.afkEnabled() && current != null
-                && System.currentTimeMillis() - current.lastActivityAt >= config.inactivityMinutes() * 60_000L;
+                && nowMillis() - current.lastActivityAt >= config.inactivityMinutes() * 60_000L;
         if (afk && !config.afkConsumesOwnTime()) return 0.0;
         PlayerBalance balance = balances.get(player);
         if (balance != null && balance.normalBalanceMillis() == 0 && balance.recoveredBalanceMillis() > 0)
@@ -688,7 +690,7 @@ public final class BalanceRuntime {
         long realRoom = Math.max(0, realCap - balance.realPlayedTodayMillis());
         Presence session = presence.get(uuid);
         boolean afk = config.afkEnabled() && session != null
-                && System.currentTimeMillis() - session.lastActivityAt >= config.inactivityMinutes() * 60_000L;
+                && nowMillis() - session.lastActivityAt >= config.inactivityMinutes() * 60_000L;
         if (afk && !config.afkConsumesOwnTime()) return realRoom;
         return Math.min(realRoom, effectiveRemaining(balance, afk ? 1 : Math.max(1, activePlayers), config));
     }
@@ -711,7 +713,7 @@ public final class BalanceRuntime {
         if (minutes < 0) throw new IllegalArgumentException("Los minutos no pueden ser negativos.");
         if (!kind.equals("normal") && !kind.equals("recuperado"))
             throw new IllegalArgumentException("Tipo válido: normal o recuperado.");
-        long adjustmentAt = System.currentTimeMillis();
+        long adjustmentAt = nowMillis();
         // Settle the old balance and any daily reset before applying the administrative change.
         tick(adjustmentAt, true);
         BalanceConfig configAtAdjustment = ConfigManager.current();
@@ -768,7 +770,7 @@ public final class BalanceRuntime {
                     return;
                 }
                 PendingAdjustment settledAdjustment = pendingAdjustmentAudits.getOrDefault(target, pending);
-                long settledAt = System.currentTimeMillis();
+                long settledAt = nowMillis();
                 BalanceEngine.StopReason stopReason = BalanceEngine.StopReason.NONE;
                 if (failure == null) {
                     PlayerBalance current = balances.get(target);
@@ -802,9 +804,9 @@ public final class BalanceRuntime {
                 if (stopReason != BalanceEngine.StopReason.NONE && activeSession != null && activePlayer != null) {
                     if (stopReason == BalanceEngine.StopReason.DAILY_REAL_LIMIT) {
                         PlayerBalance balance = balances.get(target);
-                        activePlayer.networkHandler.disconnect(Text.literal("Alcanzaste el límite diario de CraftBalance. Se restablece el "
-                                + resetService.nextResetLabel(currentConfig, settledAt, balance.dailyDate())
-                                + " (" + currentConfig.timezone() + ")."));
+                        activePlayer.networkHandler.disconnect(Text.translatable("craftbalance.message.daily_limit",
+                                resetService.nextResetLabel(currentConfig, settledAt, balance.dailyDate()),
+                                currentConfig.timezone().getId()));
                     } else {
                         activePlayer.networkHandler.disconnect(balanceExhaustedMessage(currentConfig,
                                 balances.get(target), settledAt));
@@ -822,7 +824,7 @@ public final class BalanceRuntime {
     }
 
     public boolean reloadConfig() throws IOException {
-        long now = System.currentTimeMillis();
+        long now = nowMillis();
         if (ready && !persistenceFailed) tick(now, true);
         BalanceConfig before = ConfigManager.current();
         BalanceConfig after = ConfigManager.reload(configFile, before.databaseFile());
@@ -871,7 +873,7 @@ public final class BalanceRuntime {
         try {
             if (ready) settlePendingAdjustmentsAtShutdown();
             if (ready && !persistenceFailed) {
-                long now = System.currentTimeMillis();
+                long now = nowMillis();
                 BalanceConfig config = ConfigManager.current();
                 if (config.enabled() && config.recoveryEnabled())
                     accrueOffline(now, Math.max(0, now - lastUpdateAt), config);
@@ -912,7 +914,7 @@ public final class BalanceRuntime {
                 logger.error("Falló el ajuste administrativo pendiente durante el apagado.", unwrap(failure));
             }
 
-            long settledAt = System.currentTimeMillis();
+            long settledAt = nowMillis();
             if (committed) {
                 PlayerBalance current = balances.get(target);
                 if (current != null) {
@@ -990,7 +992,7 @@ public final class BalanceRuntime {
         if (persistenceFailed) return;
         persistenceFailed = true;
         logger.error("CraftBalance detuvo el control de tiempo porque no pudo guardar SQLite.", failure);
-        Text message = Text.literal("CraftBalance no puede guardar los saldos. Contacta al administrador del servidor.");
+        Text message = Text.translatable("craftbalance.message.persistence_failed");
         for (ServerPlayerEntity player : new ArrayList<>(server.getPlayerManager().getPlayerList()))
             player.networkHandler.disconnect(message);
     }
@@ -1029,7 +1031,7 @@ public final class BalanceRuntime {
     private BalanceEngine.Advance accruePendingInterval(PlayerBalance balance, PendingAdjustment pending, long intervalEnd) {
         if (!pending.wasOnline() || !pending.configAtRequest().enabled()
                 || intervalEnd <= pending.accountingStartAt())
-            return new BalanceEngine.Advance(balance, 0, BalanceEngine.StopReason.NONE);
+            return new BalanceEngine.Advance(balance, 0, BalanceEngine.StopReason.NONE, false);
         // Use one immutable ruleset and let DailyResetService split the interval at reset boundaries.
         int factorPlayers = pending.afkAtRequest() ? 1 : pending.activePlayersAtRequest();
         boolean consume = !pending.afkAtRequest() || pending.configAtRequest().afkConsumesOwnTime();
@@ -1061,13 +1063,12 @@ public final class BalanceRuntime {
 
     private Text balanceExhaustedMessage(BalanceConfig config, PlayerBalance balance, long now) {
         if (!config.recoveryEnabled())
-            return Text.literal("Agotaste tu saldo de CraftBalance. La recuperación está desactivada. Podrás volver tras el reinicio diario "
-                    + resetService.nextResetLabel(config, now, balance.dailyDate()) + " (" + config.timezone() + ").");
-        String requirement = config.minimumRejoinMinutes() == 0
-                ? "cuando tengas algo de saldo recuperado"
-                : "cuando recuperes " + config.minimumRejoinMinutes() + " minutos";
-        return Text.literal("Agotaste tu saldo de CraftBalance. Podrás volver " + requirement
-                + "; la recuperación solo avanza mientras haya otros jugadores activos.");
+            return Text.translatable("craftbalance.message.exhausted_recovery_disabled",
+                    resetService.nextResetLabel(config, now, balance.dailyDate()), config.timezone().getId());
+        if (config.minimumRejoinMinutes() == 0)
+            return Text.translatable("craftbalance.message.exhausted_recovery_any");
+        return Text.translatable("craftbalance.message.exhausted_recovery_minimum",
+                config.minimumRejoinMinutes());
     }
 
     private static float angularDistance(float first, float second) {

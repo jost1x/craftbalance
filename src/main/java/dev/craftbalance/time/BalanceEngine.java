@@ -8,7 +8,8 @@ public final class BalanceEngine {
     private BalanceEngine() {}
 
     public enum StopReason { NONE, BALANCE_EMPTY, DAILY_REAL_LIMIT }
-    public record Advance(PlayerBalance balance, long realMillisCounted, StopReason stopReason) {}
+    public record Advance(PlayerBalance balance, long realMillisCounted, StopReason stopReason,
+                          boolean balanceEmptyAtIntervalEnd) {}
 
     public static Advance advanceConnected(PlayerBalance player, long elapsedMillis,
                                            int activePlayers, BalanceConfig config) {
@@ -18,7 +19,7 @@ public final class BalanceEngine {
     public static Advance advanceConnected(PlayerBalance player, long elapsedMillis,
                                            int activePlayers, BalanceConfig config, boolean consumeBalance) {
         if (elapsedMillis < 0) throw new IllegalArgumentException("El intervalo no puede ser negativo.");
-        if (elapsedMillis == 0) return new Advance(player, 0, StopReason.NONE);
+        if (elapsedMillis == 0) return new Advance(player, 0, StopReason.NONE, false);
 
         long realCap = config.maxRealMinutes() * 60_000L;
         long realRoom = Math.max(0, realCap - player.realPlayedTodayMillis());
@@ -30,7 +31,7 @@ public final class BalanceEngine {
                     player.lastDisconnectEpochMillis(), player.normalExhaustedToday(),
                     player.recoveryFractionalNumerator(), player.consumptionFractionalMillis());
             return new Advance(updated, allowedElapsed, playedToday >= realCap
-                    ? StopReason.DAILY_REAL_LIMIT : StopReason.NONE);
+                    ? StopReason.DAILY_REAL_LIMIT : StopReason.NONE, false);
         }
         long normal = player.normalBalanceMillis();
         long recovered = player.recoveredBalanceMillis();
@@ -70,7 +71,9 @@ public final class BalanceEngine {
         if (playedToday >= realCap) reason = StopReason.DAILY_REAL_LIMIT;
         else if (normal == 0 && recovered == 0) reason = StopReason.BALANCE_EMPTY;
         else if (acceptedReal < allowedElapsed) reason = StopReason.BALANCE_EMPTY;
-        return new Advance(updated, allowedElapsed, reason);
+        return new Advance(updated, allowedElapsed, reason,
+                reason == StopReason.BALANCE_EMPTY && acceptedReal == allowedElapsed
+                        && allowedElapsed == elapsedMillis);
     }
 
     public static PlayerBalance addRecovery(PlayerBalance player, long earnedMillis, BalanceConfig config) {

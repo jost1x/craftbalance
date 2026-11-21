@@ -73,6 +73,7 @@ public final class DailyResetService {
         long cursor = intervalStartEpochMillis;
         long counted = 0;
         BalanceEngine.StopReason stopReason = BalanceEngine.StopReason.NONE;
+        boolean balanceEmptyAtIntervalEnd = false;
 
         while (true) {
             LocalDate dateAtCursor = dailyDateAt(Instant.ofEpochMilli(cursor), config);
@@ -90,13 +91,20 @@ public final class DailyResetService {
                 balance = slice.balance();
                 counted += slice.realMillisCounted();
                 stopReason = slice.stopReason();
+                balanceEmptyAtIntervalEnd = slice.balanceEmptyAtIntervalEnd();
                 boolean resetReachedAtRealLimit = stopReason == BalanceEngine.StopReason.DAILY_REAL_LIMIT
                         && sliceEnd == boundary && slice.realMillisCounted() == sliceMillis;
-                if (stopReason != BalanceEngine.StopReason.NONE && !resetReachedAtRealLimit) break;
-                if (resetReachedAtRealLimit) stopReason = BalanceEngine.StopReason.NONE;
+                boolean balanceEmptyAtReset = stopReason == BalanceEngine.StopReason.BALANCE_EMPTY
+                        && sliceEnd == boundary && slice.balanceEmptyAtIntervalEnd();
+                if (stopReason != BalanceEngine.StopReason.NONE
+                        && !resetReachedAtRealLimit && !balanceEmptyAtReset) break;
+                if (resetReachedAtRealLimit || balanceEmptyAtReset) {
+                    stopReason = BalanceEngine.StopReason.NONE;
+                    balanceEmptyAtIntervalEnd = false;
+                }
             }
             cursor = sliceEnd;
         }
-        return new BalanceEngine.Advance(balance, counted, stopReason);
+        return new BalanceEngine.Advance(balance, counted, stopReason, balanceEmptyAtIntervalEnd);
     }
 }

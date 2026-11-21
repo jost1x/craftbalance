@@ -167,10 +167,10 @@ profiles only when the scenario needs them.
 
 ## Documentation and Git
 
-- User-facing content — in-game messages, command output, `README.md`,
-  `CHANGELOG.md`, the spec, and the acceptance sheet — is written in
-  **Spanish**. Code, identifiers, javadoc, and commit messages are in
-  **English**. Match the surrounding language of whatever you edit.
+- Documentation prose — `README.md`, `CHANGELOG.md`, the spec, and the
+  acceptance sheet — is written in **Spanish**. In-game messages and command
+  output use `assets/craftbalance/lang/`, with Spanish as the reference locale.
+  Code, identifiers, javadoc, and commit messages are in **English**.
 - If a product rule, permission, config option, or observable behavior
   changes, update README/spec/CHANGELOG in the same change. Recorded
   acceptance results are historical evidence: append new runs, never rewrite
