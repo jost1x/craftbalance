@@ -122,16 +122,16 @@ public final class BalanceRuntime {
 
     public void onJoin(ServerPlayerEntity player, long now) {
         if (persistenceFailed) {
-            player.networkHandler.disconnect(Text.translatable("craftbalance.message.persistence_unavailable"));
+            player.networkHandler.disconnect(BalanceTranslations.text(player, "craftbalance.message.persistence_unavailable"));
             return;
         }
         if (!ready) {
-            player.networkHandler.disconnect(Text.translatable("craftbalance.message.loading"));
+            player.networkHandler.disconnect(BalanceTranslations.text(player, "craftbalance.message.loading"));
             return;
         }
         UUID uuid = player.getUuid();
         if (pendingAdjustmentAudits.containsKey(uuid)) {
-            player.networkHandler.disconnect(Text.translatable("craftbalance.message.balance_updating"));
+            player.networkHandler.disconnect(BalanceTranslations.text(player, "craftbalance.message.balance_updating"));
             return;
         }
         BalanceConfig config = ConfigManager.current();
@@ -145,9 +145,9 @@ public final class BalanceRuntime {
             presence.put(uuid, newPresence(now, player));
             refreshActivePlayers(now, config);
             if (config.loginSummaryEnabled()) {
-                player.sendMessage(Text.translatable("craftbalance.message.login_paused",
+                player.sendMessage(BalanceTranslations.text(player, "craftbalance.message.login_paused",
                         format(balance.normalBalanceMillis()), format(balance.recoveredBalanceMillis())), false);
-                player.sendMessage(Text.translatable("craftbalance.message.estimate_paused"), false);
+                player.sendMessage(BalanceTranslations.text(player, "craftbalance.message.estimate_paused"), false);
             }
             return;
         }
@@ -167,7 +167,7 @@ public final class BalanceRuntime {
             persistSoon();
             rejectedJoins.add(uuid);
             refreshActivePlayers(now, config, uuid);
-            player.networkHandler.disconnect(Text.translatable("craftbalance.message.daily_limit",
+            player.networkHandler.disconnect(BalanceTranslations.text(player, "craftbalance.message.daily_limit",
                     resetService.nextResetLabel(config, now, balance.dailyDate()), config.timezone().getId()));
             return;
         }
@@ -175,7 +175,7 @@ public final class BalanceRuntime {
             persistSoon();
             rejectedJoins.add(uuid);
             refreshActivePlayers(now, config, uuid);
-            player.networkHandler.disconnect(rejoinBlockReason(balance, now));
+            player.networkHandler.disconnect(rejoinBlockReason(player, balance, now));
             return;
         }
         balance = new PlayerBalance(balance.uuid(), balance.dailyDate(), balance.normalBalanceMillis(),
@@ -187,10 +187,10 @@ public final class BalanceRuntime {
         advanceRecoveryCursor(uuid, now);
         refreshActivePlayers(now, config);
         if (ConfigManager.current().loginSummaryEnabled()) {
-            player.sendMessage(Text.translatable("craftbalance.message.login_summary",
+            player.sendMessage(BalanceTranslations.text(player, "craftbalance.message.login_summary",
                     format(balance.normalBalanceMillis()), format(balance.recoveredBalanceMillis()),
                     format(Math.max(0, ConfigManager.current().maxRealMinutes() * 60_000L - balance.realPlayedTodayMillis()))), false);
-            player.sendMessage(Text.translatable("craftbalance.message.playable_estimate",
+            player.sendMessage(BalanceTranslations.text(player, "craftbalance.message.playable_estimate",
                     format(estimatedPlayableMillis(uuid))), false);
         }
         persistSoon();
@@ -402,15 +402,15 @@ public final class BalanceRuntime {
             }
             double displayedRate = !consumeBalance ? 0.0 : after.normalBalanceMillis() > 0
                     ? config.consumptionFor(factorPlayers) : config.recoveredConsumption();
-            if (config.actionBarEnabled()) player.sendMessage(Text.translatable("craftbalance.message.action_bar",
+            if (config.actionBarEnabled()) player.sendMessage(BalanceTranslations.text(player, "craftbalance.message.action_bar",
                     format(after.normalBalanceMillis()), format(after.recoveredBalanceMillis()),
                     BalanceFormatting.percent(displayedRate)), true);
             if (stopReason == BalanceEngine.StopReason.DAILY_REAL_LIMIT) {
-                player.networkHandler.disconnect(Text.translatable("craftbalance.message.daily_limit",
+                player.networkHandler.disconnect(BalanceTranslations.text(player, "craftbalance.message.daily_limit",
                         resetService.nextResetLabel(config, now, after.dailyDate()), config.timezone().getId()));
                 onDisconnect(player, now);
             } else if (stopReason == BalanceEngine.StopReason.BALANCE_EMPTY) {
-                player.networkHandler.disconnect(balanceExhaustedMessage(config, after, now));
+                player.networkHandler.disconnect(balanceExhaustedMessage(player, config, after, now));
                 onDisconnect(player, now);
             }
         }
@@ -551,7 +551,7 @@ public final class BalanceRuntime {
         for (int minutes : config.warningMinutes()) {
             long threshold = minutes * 60_000L;
             if (before > threshold && after <= threshold && sent.add(minutes))
-                player.sendMessage(Text.translatable("craftbalance.message.warning", minutes), false);
+                player.sendMessage(BalanceTranslations.text(player, "craftbalance.message.warning", minutes), false);
         }
     }
 
@@ -660,15 +660,15 @@ public final class BalanceRuntime {
     public String nextResetLabel(PlayerBalance balance, long epochMillis) {
         return resetService.nextResetLabel(ConfigManager.current(), epochMillis, balance.dailyDate());
     }
-    public Text rejoinBlockReason(PlayerBalance balance, long epochMillis) {
+    public Text rejoinBlockReason(ServerPlayerEntity player, PlayerBalance balance, long epochMillis) {
         BalanceConfig config = ConfigManager.current();
         if (!config.recoveryEnabled())
-            return Text.translatable("craftbalance.message.rejoin_recovery_disabled",
+            return BalanceTranslations.text(player, "craftbalance.message.rejoin_recovery_disabled",
                     resetService.nextResetLabel(config, epochMillis, balance.dailyDate()), config.timezone().getId());
         int minimumMinutes = config.minimumRejoinMinutes();
         if (minimumMinutes == 0)
-            return Text.translatable("craftbalance.message.rejoin_need_positive");
-        return Text.translatable("craftbalance.message.rejoin_need_minimum", minimumMinutes,
+            return BalanceTranslations.text(player, "craftbalance.message.rejoin_need_positive");
+        return BalanceTranslations.text(player, "craftbalance.message.rejoin_need_minimum", minimumMinutes,
                 format(Math.max(0, (long) minimumMinutes * 60_000L - balance.recoveredBalanceMillis())));
     }
     public double consumptionFor(UUID player) {
@@ -804,11 +804,11 @@ public final class BalanceRuntime {
                 if (stopReason != BalanceEngine.StopReason.NONE && activeSession != null && activePlayer != null) {
                     if (stopReason == BalanceEngine.StopReason.DAILY_REAL_LIMIT) {
                         PlayerBalance balance = balances.get(target);
-                        activePlayer.networkHandler.disconnect(Text.translatable("craftbalance.message.daily_limit",
+                        activePlayer.networkHandler.disconnect(BalanceTranslations.text(activePlayer, "craftbalance.message.daily_limit",
                                 resetService.nextResetLabel(currentConfig, settledAt, balance.dailyDate()),
                                 currentConfig.timezone().getId()));
                     } else {
-                        activePlayer.networkHandler.disconnect(balanceExhaustedMessage(currentConfig,
+                        activePlayer.networkHandler.disconnect(balanceExhaustedMessage(activePlayer, currentConfig,
                                 balances.get(target), settledAt));
                     }
                     onDisconnect(activePlayer, settledAt);
@@ -992,9 +992,8 @@ public final class BalanceRuntime {
         if (persistenceFailed) return;
         persistenceFailed = true;
         logger.error("CraftBalance detuvo el control de tiempo porque no pudo guardar SQLite.", failure);
-        Text message = Text.translatable("craftbalance.message.persistence_failed");
         for (ServerPlayerEntity player : new ArrayList<>(server.getPlayerManager().getPlayerList()))
-            player.networkHandler.disconnect(message);
+            player.networkHandler.disconnect(BalanceTranslations.text(player, "craftbalance.message.persistence_failed"));
     }
 
     private java.util.List<PlayerBalance> persistenceSnapshot() {
@@ -1061,13 +1060,13 @@ public final class BalanceRuntime {
         return remainder + " s";
     }
 
-    private Text balanceExhaustedMessage(BalanceConfig config, PlayerBalance balance, long now) {
+    private Text balanceExhaustedMessage(ServerPlayerEntity player, BalanceConfig config, PlayerBalance balance, long now) {
         if (!config.recoveryEnabled())
-            return Text.translatable("craftbalance.message.exhausted_recovery_disabled",
+            return BalanceTranslations.text(player, "craftbalance.message.exhausted_recovery_disabled",
                     resetService.nextResetLabel(config, now, balance.dailyDate()), config.timezone().getId());
         if (config.minimumRejoinMinutes() == 0)
-            return Text.translatable("craftbalance.message.exhausted_recovery_any");
-        return Text.translatable("craftbalance.message.exhausted_recovery_minimum",
+            return BalanceTranslations.text(player, "craftbalance.message.exhausted_recovery_any");
+        return BalanceTranslations.text(player, "craftbalance.message.exhausted_recovery_minimum",
                 config.minimumRejoinMinutes());
     }
 
